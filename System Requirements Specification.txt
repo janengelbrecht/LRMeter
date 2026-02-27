@@ -1,0 +1,590 @@
+================================================================================
+  SYSTEM REQUIREMENTS SPECIFICATION (SRS)
+  Precision Auto-Ranging LR Meter
+  Resistance and Inductance Measurement Device
+
+  Document ID  : SRS-LRMETER-002
+  Version      : 2.1
+  Date         : 25 February 2026
+  Status       : RELEASED – Internal / Development
+  Language     : English (all documentation, source code, comments and
+                 identifiers shall be in English only)
+  Standards    : IEC 62304, ISO 9001:2015, IEEE 830-1998,
+                 DO-178C Level C (adapted for embedded instrumentation)
+================================================================================
+
+
++------------------------------------------------------------------------------+
+| 1. INTRODUCTION                                                              |
++------------------------------------------------------------------------------+
+| 1.1  Purpose                                                                 |
+|                                                                              |
+| This SRS defines the complete technical, functional, performance, hardware,  |
+| software, documentation and test requirements for the Precision LR Meter     |
+| device. It serves as the sole authoritative source for all development       |
+| activities. Any deviation from this specification requires a formal change   |
+| request and re-approval by the responsible engineering authority.            |
+|                                                                              |
+| 1.2  Scope                                                                   |
+|                                                                              |
+| The LR Meter is a standalone embedded measurement instrument capable of      |
+| measuring unknown electrical resistance in the range 0 ohm to 2 Mohm, and   |
+| inductance in the range 80 uH to 30 mH. The system is built on an Arduino   |
+| UNO platform (ATmega328P). All external circuitry resides on a single custom |
+| Arduino Shield stacked directly on the UNO. The device supports both local  |
+| operation (pushbuttons and 16x2 I2C LCD or SSD1306 OLED display) and remote  |
+| SCPI control via USB Serial.                                                 |
+|                                                                              |
+| 1.3  Definitions and Acronyms                                                |
+|                                                                              |
+|   ADC    Analog-to-Digital Converter                                         |
+|   DUT    Device Under Test                                                   |
+|   High-Z High-Impedance state (digital pin configured as input)              |
+|   I2C    Inter-Integrated Circuit (two-wire serial bus)                      |
+|   LC     Inductor-Capacitor (resonant tank circuit)                          |
+|   LCD    Liquid Crystal Display                                              |
+|   MCU    Microcontroller Unit                                                |
+|   OLED   Organic Light-Emitting Diode display                                |
+|   SCPI   Standard Commands for Programmable Instruments                      |
+|   SRS    System Requirements Specification                                   |
+|   UNO    Arduino UNO development board (ATmega328P, 5 V, 16 MHz)            |
+|                                                                              |
+| 1.4  Document Structure                                                      |
+|                                                                              |
+| Section 2 provides an overall description of the product. Section 3 defines  |
+| top-level system requirements. Section 4 covers hardware requirements.       |
+| Section 5 covers software and firmware requirements. Section 6 covers        |
+| documentation requirements. Section 7 covers test and verification           |
+| requirements. Section 8 provides the traceability matrix. Section 9 details  |
+| approval and change control procedures. Appendices include pinout and        |
+| calibration information.                                                     |
++------------------------------------------------------------------------------+
+
+
++------------------------------------------------------------------------------+
+| 2. OVERALL DESCRIPTION                                                       |
++------------------------------------------------------------------------------+
+| 2.1  Product Perspective                                                     |
+|                                                                              |
+| The L-R Meter operates as an integrated measurement instrument where the     |
+| microcontroller orchestrates hardware stimulation, captures analog and       |
+| digital feedback, processes the data through digital filtering and           |
+| oversampling techniques, and outputs the results simultaneously to a local   |
+| display and a remote serial host. The system employs ratiometric            |
+| measurement principles for resistance determination and LC resonant tank     |
+| frequency measurement for inductance determination.                          |
+|                                                                              |
+| 2.2  Design Philosophy                                                       |
+|                                                                              |
+| The system is designed with the following core principles:                   |
+|  - Accuracy: High-precision measurements through calibrated reference        |
+|    components and oversampling.                                              |
+|  - Automation: Auto-ranging eliminates user intervention for range selection.|
+|  - Usability: Intuitive local interface plus remote control for automated    |
+|    test systems.                                                             |
+|  - Reliability: Robust debouncing, error handling, and transient protection. |
+|  - Maintainability: Fully commented procedural code with modular function    |
+|    structure.                                                                |
+|                                                                              |
+| 2.3  Assumptions and Dependencies                                            |
+|                                                                              |
+|  1. The system assumes a stable 5.0 V DC power supply (±5%) for accurate     |
+|     ratiometric ADC measurements. Power shall be derived from USB or         |
+|     external barrel jack.                                                     |
+|  2. The fixed reference capacitor in the LC tank circuit is assumed to be    |
+|     exactly 2.0 uF (±5%) for inductance calculations.                        |
+|  3. The four reference resistors (2 kOhm, 20 kOhm, 200 kOhm, 1 MOhm) MUST    |
+|     have tolerance 1% or better and be individually measured and recorded    |
+|     during assembly for calibration.                                         |
+|  4. The Arduino development environment (version 2.x or later) shall be used |
+|     for firmware development and compilation.                                |
+|  5. All external library dependencies are limited to Wire.h and the          |
+|     appropriate display library (LiquidCrystal_I2C.h for LCD or Adafruit     |
+|     SSD1306 for OLED).                                                       |
++------------------------------------------------------------------------------+
+
+
++------------------------------------------------------------------------------+
+| 3. SYSTEM REQUIREMENTS                                                       |
++------------------------------------------------------------------------------+
+|                                                                              |
+| SYS-REQ-001  The device shall automatically select the optimal resistance    |
+|              measurement range and display results with automatic engineering |
+|              unit scaling on the local display.                              |
+|                                                                              |
+| SYS-REQ-002  The device shall measure inductance using the LC ring-down      |
+|              (resonance) method with a fixed reference capacitor of 2 uF.    |
+|                                                                              |
+| SYS-REQ-003  The device shall provide full SCPI remote control via the USB   |
+|              Serial interface.                                               |
+|                                                                              |
+| SYS-REQ-004  All external hardware shall be implemented on one Arduino       |
+|              Shield stacked directly on an Arduino UNO.                      |
+|                                                                              |
+| SYS-REQ-005  Measurement accuracy targets after calibration:                 |
+|                Resistance : ±1.5% of reading or ±2 Ohm (whichever greater)  |
+|                Inductance : ±5% of reading                                   |
+|                                                                              |
+| SYS-REQ-006  The system shall assume a stable 5.0 V DC supply (VCC) for      |
+|              accurate ratiometric ADC measurements.                          |
+|                                                                              |
+| SYS-REQ-007  The reference capacitor in the LC tank circuit shall be treated |
+|              as exactly 2 uF in all inductance calculations.                 |
+|                                                                              |
+| SYS-REQ-008  Reference resistors shall have a tolerance of 1% or better to   |
+|              ensure auto-scaling accuracy.                                   |
++------------------------------------------------------------------------------+
+
+
++------------------------------------------------------------------------------+
+| 4. HARDWARE REQUIREMENTS                                                     |
++------------------------------------------------------------------------------+
+|                                                                              |
+| HW-REQ-001  The microcontroller unit shall be the Arduino UNO               |
+|             (ATmega328P, 5 V, 16 MHz).                                      |
+|                                                                              |
+| HW-REQ-002  All external components shall be mounted on a custom Arduino    |
+|             Shield that mates with the UNO standard headers. No active       |
+|             components shall be placed on the bottom side of the shield.     |
+|                                                                              |
+| HW-REQ-003  The shield circuit shall incorporate the following mandatory    |
+|             components and pin assignments:                                  |
+|                                                                              |
+|   +------------------+-------------------------------------------+          |
+|   | Arduino Pin      | Function / Description                    |          |
+|   +------------------+-------------------------------------------+          |
+|   | D7               | Divider supply enable (5 V, active HIGH)  |          |
+|   | D8               | Known resistor 2 kOhm   (active LOW)      |          |
+|   | D9               | Known resistor 20 kOhm  (active LOW)      |          |
+|   | D10              | Known resistor 200 kOhm (active LOW)      |          |
+|   | D11              | Known resistor 1 MOhm   (active LOW)      |          |
+|   | D6               | Inductor charge output (OUT_L_TEST_PIN)   |          |
+|   | D12              | Pulse-width input from LM393 comparator   |          |
+|   | D4               | Test button input (active LOW, pull-up)   |          |
+|   | D5               | Mode button input (active LOW, pull-up)   |          |
+|   | A0               | Optional ADC test input (potentiometer)   |          |
+|   | A2               | Voltage-sense analog input (ANALOG_RES)   |          |
+|   | SDA / SCL        | I2C bus for LCD or OLED display           |          |
+|   +------------------+-------------------------------------------+          |
+|                                                                              |
+|   Reference Resistor Values (calibrated):                                   |
+|   +------------+---------------------+                                       |
+|   | Range      | Nominal Value       |                                       |
+|   +------------+---------------------+                                       |
+|   | 2 kOhm     | 2 005.0 Ohm         |                                       |
+|   | 20 kOhm    | 20 030.0 Ohm        |                                       |
+|   | 200 kOhm   | 218 000.0 Ohm       |                                       |
+|   | 1 MOhm     | 1 006 000.0 Ohm     |                                       |
+|   +------------+---------------------+                                       |
+|                                                                              |
+| HW-REQ-004  The LM393 dual comparator shall be used for sine-to-square      |
+|             conversion of the LC ringing signal. Section A configuration:    |
+|               Pull-up resistor R7  : 330 Ohm                                |
+|               Series resistor R6   : 150 Ohm                                |
+|               Protection diode D1  : 1N4148                                 |
+|                                                                              |
+| HW-REQ-005  The fixed LC tank capacitor shall be 2.0 uF ±5%.                |
+|                                                                              |
+| HW-REQ-006  All resistor values on the shield shall be measured and recorded |
+|             during assembly. Measured values shall be stored as const float  |
+|             in the firmware calibration table (KNOWN_RESISTORS array).      |
+|                                                                              |
+| HW-REQ-007  Power supply: 5 V from UNO USB connector or barrel jack.        |
+|             Total shield current consumption shall not exceed 150 mA.       |
+|                                                                              |
+| HW-REQ-008  The display interface shall support:                             |
+|               Option A: 16x2 I2C LCD with PCF8574 backpack at I2C address   |
+|                         0x27 (fallback: 0x3F).                              |
+|               Option B: SSD1306 monochromatic OLED 128x64 via I2C.          |
+|             The firmware shall auto-detect the display type at startup.     |
+|                                                                              |
+| HW-REQ-009  An optional analog test terminal (potentiometer) on A0 shall be  |
+|             provided for ADC verification mode.                              |
++------------------------------------------------------------------------------+
+
+
++------------------------------------------------------------------------------+
+| 5. SOFTWARE / FIRMWARE REQUIREMENTS                                          |
++------------------------------------------------------------------------------+
+| 5.1  Development Environment and Coding Standards                            |
+|                                                                              |
+| SW-REQ-001  Firmware shall be developed exclusively in the Arduino IDE       |
+|             (version 2.x or later) using Arduino C++ (C++11 subset).        |
+|                                                                              |
+| SW-REQ-002  The entire firmware shall reside in a single file named         |
+|             "LR_meter.ino". No additional .cpp or .h files are permitted.   |
+|             Only the following two libraries may be included:                |
+|               #include <Wire.h>                                              |
+|               #include <LiquidCrystal_I2C.h>  (or equivalent for OLED)      |
+|                                                                              |
+| SW-REQ-003  Programming technique shall be purely procedural. No user-      |
+|             defined classes, objects, structs (except for mandatory library  |
+|             use), templates, or any other OOP constructs shall be used.     |
+|                                                                              |
+| 5.2  Mandatory Module (Function) List                                        |
+|                                                                              |
+| SW-REQ-004  The following modules shall be present with exact function       |
+|             names as listed:                                                 |
+|                                                                              |
+|   +-------------------------------------+----------------------------------+ |
+|   | Function Name                       | Responsibility                   | |
+|   +-------------------------------------+----------------------------------+ |
+|   | AutoScaleSelectResistor             | Activate one reference resistor  | |
+|   | ReadOversampledADC                  | 16x oversample + mean on A2      | |
+|   | AutoScaleDetermineRangeFromADC      | Select optimal range             | |
+|   | CalculateResistance                 | Compute Rx from ADC reading      | |
+|   | InitializeDisplay                   | Init display at startup          | |
+|   | DisplayResistance                   | Format & display resistance      | |
+|   | DisplayInductance                   | Format & display inductance      | |
+|   | UpdateDisplay                        | Refresh display                  | |
+|   | MeasureInductance                   | Full LC ring-down measurement    | |
+|   | ProcessSCPICommand                  | Parse & respond to SCPI input    | |
+|   | IsTestButtonPressed                 | Debounced test button read       | |
+|   | IsModeButtonPressed                 | Debounced mode button read       | |
+|   | DebounceButtons                      | Non-blocking button debouncing   | |
+|   | setup                               | Arduino initialisation entry     | |
+|   | loop                                | Arduino main loop                | |
+|   +-------------------------------------+----------------------------------+ |
+|                                                                              |
+| 5.3  Commenting Standard                                                     |
+|                                                                              |
+| SW-REQ-005  The following commenting standard is mandatory for every line   |
+|             of source code:                                                  |
+|                                                                              |
+|   a) Every function shall begin with a multi-line block comment of at least |
+|      six lines. The block shall document: purpose, input parameters, output |
+|      parameters / return value, algorithm summary, and calling sequence.    |
+|   b) Every single executable line of code shall carry an inline comment     |
+|      placed immediately to the right of the statement, explicitly           |
+|      describing the function of that exact line.                            |
+|   c) All comments shall be in English only.                                 |
+|                                                                              |
+| 5.4  Data Catalog                                                            |
+|                                                                              |
+| SW-REQ-006  The following data catalog shall appear as a commented section  |
+|             at the top of LR_meter.ino, immediately after the file header:  |
+|                                                                              |
+|   /*=======================================================================*/|
+|   /* DATA CATALOG - CONSTANTS AND GLOBAL VARIABLES                         */|
+|   /*=======================================================================*/|
+|   /* Name                  Type          Description        Unit/Range     */|
+|   /*----------------------+-------------+------------------+--------------*/|
+|   /* RES_PINS              const int[4]  Resistor sel pins {11,10,9,8}    */|
+|   /* KNOWN_RESISTORS       const float[4] Calibrated vals 2005.0... Ohm   */|
+|   /* APPLY_VOLTAGE_PIN     const int     Divider supply pin 7             */|
+|   /* ANALOG_RES_PIN        const int     Voltage sense pin  A2            */|
+|   /* OUT_L_TEST_PIN        const int     Inductor charge pin 6            */|
+|   /* PULSE_IN_PIN          const int     Pulse width input   12           */|
+|   /* BUTTON_TEST_PIN       const int     Test button pin     4            */|
+|   /* BUTTON_MODE_PIN       const int     Mode button pin     5            */|
+|   /* FIXED_CAPACITANCE     const float   LC capacitor value 2.0e-6 F      */|
+|   /* DEBOUNCE_DELAY        const int     Debounce time (ms) 50            */|
+|   /* ADC_OVERSAMPLE        const int     Oversampling factor 16           */|
+|   /* display               object        Display object     I2C address    */|
+|   /*=======================================================================*/|
+|                                                                              |
+| 5.5  Resistance Measurement Algorithm                                        |
+|                                                                              |
+| SW-REQ-007  The resistance measurement algorithm shall operate as follows:   |
+|                                                                              |
+|   a) AutoScaleDetermineRangeFromADC shall test all four reference resistor  |
+|      ranges sequentially.                                                    |
+|   b) Each test shall use 16-times oversampling with arithmetic mean on      |
+|      analog input A2 (ReadOversampledADC).                                  |
+|   c) The range whose ADC result is closest to mid-scale (512) and falls     |
+|      within the valid window [80 ... 944] shall be selected.                |
+|   d) If all ranges are saturated (outside the valid window), the algorithm  |
+|      shall fall back to the lowest or highest range as appropriate.         |
+|   e) CalculateResistance shall compute the unknown resistance using the     |
+|      ratiometric voltage-divider formula:                                   |
+|        V_out = adc_value * 5.0 / 1024.0  (volts)                            |
+|        Rx    = R_known * (5.0 / V_out - 1.0)  (ohm)                         |
+|      Where R_known is the currently selected calibrated reference resistor. |
+|   f) Only one reference resistor pin shall be driven LOW (active) at any    |
+|      given time. All inactive reference resistor pins shall be set to       |
+|      High-Z (Input) state to prevent parallel current leakage paths.        |
+|                                                                              |
+| 5.6  Inductance Measurement Algorithm                                        |
+|                                                                              |
+| SW-REQ-008  The inductance measurement algorithm shall operate as follows:   |
+|                                                                              |
+|   a) The measurement shall be averaged over 8 consecutive pulses.           |
+|   b) For each pulse: drive D6 HIGH for exactly 5 ms to charge the inductor, |
+|      then drive D6 LOW to release energy and initiate LC resonance.         |
+|   c) Wait 150 us after release to bypass initial switching transients.      |
+|   d) pulseIn(D12, HIGH, 8000) measures the high-time of the comparator      |
+|      output, yielding a half-period T_half in microseconds.                 |
+|   e) Resonance frequency and inductance shall be calculated as:             |
+|        f = 1 000 000 / (2 * avg_pulse_us)  (Hz)                             |
+|        L = 1 / (C * (2 * pi * f)^2)  (henries)                              |
+|      Where C = 2.0e-6 F and pi = 3.14159265.                                |
+|                                                                              |
+| 5.7  User Interface                                                          |
+|                                                                              |
+| SW-REQ-009  The user interface shall behave as follows:                      |
+|                                                                              |
+|   a) On power-up the display shall show the startup message "LR Meter       |
+|      Ready".                                                                 |
+|   b) The Mode button shall cycle the operating mode in the following        |
+|      sequence (circular):                                                    |
+|        Ready -> Resistance (auto) -> Inductance -> Help/Pinout -> ADC Test  |
+|   c) The Test button shall trigger the measurement corresponding to the     |
+|      currently active mode.                                                  |
+|   d) Measured values shall be displayed with automatic engineering unit     |
+|      scaling:                                                                |
+|        Resistance : Ohm, kOhm, MOhm                                         |
+|        Inductance : uH, mH, H                                               |
+|   e) Resistance shall be formatted as:   R : [value] Ohm   (4 d.p.)        |
+|   f) Inductance  shall be formatted as:  L: [value] H      (4 d.p.)        |
+|   g) If the DUT is absent or out of measurement range, the display shall   |
+|      show an appropriate error state such as "OUT OF RANGE" or "NO PART".   |
+|                                                                              |
+| 5.8  SCPI Remote Control                                                     |
+|                                                                              |
+| SW-REQ-010  The firmware shall implement a serial SCPI interface operating   |
+|             over USB/UART. All incoming commands shall be processed case-    |
+|             insensitively. The mandatory command set is:                     |
+|                                                                              |
+|   +------------------------+----------------------------------------------+ |
+|   | Command                | System Response                              | |
+|   +------------------------+----------------------------------------------+ |
+|   | *IDN?                  | Arduino UNO,LR_Meter,V2.1\n                  | |
+|   | MEAS:RES?              | R : <value> Ohm\n                            | |
+|   | MEAS:IND?              | L: <value> H\n                               | |
+|   | *CLS                   | Clear status (no output)                     | |
+|   | MEAS:RES? AUTO         | Forces auto-range resistance measurement      | |
+|   | MEAS:IND? AVG[1-16]    | Sets averaging count for inductance          | |
+|   | SYST:ERR?              | Returns last error message or "No error"     | |
+|   +------------------------+----------------------------------------------+ |
+|                                                                              |
+| 5.9  Non-Functional Requirements                                             |
+|                                                                              |
+| SW-REQ-011  Total measurement time (from button press to displayed result)  |
+|             shall not exceed 3 seconds.                                     |
+|                                                                              |
+| SW-REQ-012  Button debounce time shall be 50 ms, implemented using          |
+|             millis()-based non-blocking logic.                              |
+|                                                                              |
+| SW-REQ-013  Action events shall trigger only on the falling edge (HIGH-to-  |
+|             LOW transition) of the debounced button signal.                 |
+|                                                                              |
+| SW-REQ-014  No blocking delay calls longer than 10 ms shall appear in the   |
+|             main loop() function.                                           |
+|                                                                              |
+| SW-REQ-015  The SCPI parser shall not block the main control loop for more  |
+|             than 10 ms during command evaluation.                           |
+|                                                                              |
+| SW-REQ-016  The auto-scaling resistance loop shall stabilise and yield a    |
+|             final value within 200 ms of DUT connection.                    |
+|                                                                              |
+| SW-REQ-017  The system shall detect and report the following error          |
+|             conditions:                                                      |
+|               a) No DUT or open circuit : "OPEN / NO PART"                  |
+|               b) DUT short circuit      : "SHORT CIRCUIT"                   |
+|               c) Out of measurement range: "OUT OF RANGE"                   |
+|               d) LC oscillation not detected: "NO OSCILLATION"              |
+|               e) I2C communication failure: "DISPLAY ERROR"                 |
++------------------------------------------------------------------------------+
+
+
++------------------------------------------------------------------------------+
+| 6. DOCUMENTATION REQUIREMENTS                                                |
++------------------------------------------------------------------------------+
+|                                                                              |
+| DOC-REQ-001  All project documentation shall be written in English only.    |
+|                                                                              |
+| DOC-REQ-002  Firmware source code shall conform fully to the mandatory       |
+|              commenting standard defined in SW-REQ-005.                     |
+|                                                                              |
+| DOC-REQ-003  The following deliverables shall be produced and version-       |
+|              controlled:                                                     |
+|                                                                              |
+|   a) This SRS (including traceability matrix).                              |
+|   b) Full LR_meter.ino source with every line commented per SW-REQ-005.     |
+|   c) Assembly drawing of the Arduino Shield (Gerber files + PDF).           |
+|   d) Calibration procedure document and known-resistor measurement table.   |
+|   e) User manual (operation, pinout diagram, SCPI reference).               |
+|   f) Test reports: hardware, module, integration, acceptance.               |
+|   g) Bill of Materials (BOM) with component specifications and sources.     |
++------------------------------------------------------------------------------+
+
+
++------------------------------------------------------------------------------+
+| 7. TEST AND VERIFICATION REQUIREMENTS                                        |
++------------------------------------------------------------------------------+
+|                                                                              |
+| TEST-REQ-001  Hardware Verification Tests                                    |
+|                                                                              |
+|   a) Visual and continuity inspection of shield versus the reference        |
+|      schematic (schematics.png).                                            |
+|   b) Voltage verification at all test points (5 V rail, GND, divider        |
+|      supply line).                                                          |
+|   c) Four-wire (Kelvin) measurement of each reference resistor; results     |
+|      shall be recorded in the calibration table.                            |
+|   d) I2C communication verification with display module.                    |
+|   e) Button functionality and debouncing verification with oscilloscope.    |
+|                                                                              |
+| TEST-REQ-002  Software Module (Unit) Tests                                   |
+|                                                                              |
+|   Each mandatory function shall be tested in isolation using a separate     |
+|   test sketch or targeted SCPI commands:                                    |
+|                                                                              |
+|   a) CalculateResistance        : inject ADC values 0 to 1023, verify       |
+|                                   output against known formulae.            |
+|   b) MeasureInductance          : simulate known pulse widths, verify       |
+|                                   inductance calculation.                   |
+|   c) AutoScaleDetermineRangeFromADC : verify range selection logic for all  |
+|                                   boundary conditions.                      |
+|   d) Display functions: Verify correct formatting and unit scaling.         |
+|   e) SCPI parser: Test all commands with valid and invalid inputs.          |
+|                                                                              |
+| TEST-REQ-003  Integration Tests                                              |
+|                                                                              |
+|   a) Button press -> measurement trigger -> display update + serial output. |
+|   b) Full SCPI command set verification (all commands in SW-REQ-010).       |
+|   c) Mode cycling sequence and display content correctness.                 |
+|   d) Automatic unit scaling functionality.                                  |
+|   e) Error condition detection and reporting.                               |
+|                                                                              |
+| TEST-REQ-004  Acceptance Tests                                               |
+|                                                                              |
+|   Resistance standards (target accuracy: ±1.5% or ±2 Ohm):                  |
+|     10 Ohm, 1 kOhm, 10 kOhm, 100 kOhm, 1 MOhm                              |
+|   Inductance standards (target accuracy: ±5%):                              |
+|     100 uH, 1 mH, 10 mH                                                     |
+|   Reliability: 100 consecutive measurements without crash or lock-up.       |
+|   Power-on self-test: LCD/OLED startup message, button response, serial     |
+|      echo verified.                                                          |
+|                                                                              |
+| TEST-REQ-005  Full traceability matrix: each requirement ID shall be linked  |
+|              to one or more test cases with recorded pass/fail results.     |
+|                                                                              |
+| TEST-REQ-006  All tests shall be documented with: pass/fail criteria, test  |
+|              date, tester name, and supporting evidence (photos, serial     |
+|              logs, oscilloscope screenshots).                               |
++------------------------------------------------------------------------------+
+
+
++------------------------------------------------------------------------------+
+| 8. REQUIREMENTS TRACEABILITY MATRIX                                          |
++------------------------------------------------------------------------------+
+|                                                                              |
+| +---------------+------------------------------+--------------------------+ |
+| | Requirement   | Description (short)          | Test Case Reference      | |
+| +---------------+------------------------------+--------------------------+ |
+| | SYS-REQ-001   | Auto-range + display         | TEST-REQ-003c,004        | |
+| | SYS-REQ-002   | LC ring-down inductance      | TEST-REQ-002b,004        | |
+| | SYS-REQ-003   | SCPI remote control          | TEST-REQ-003b            | |
+| | SYS-REQ-004   | Arduino UNO + shield         | TEST-REQ-001a            | |
+| | SYS-REQ-005   | Measurement accuracy         | TEST-REQ-004             | |
+| | SYS-REQ-006   | 5 V stable supply            | TEST-REQ-001b            | |
+| | SYS-REQ-007   | C = 2 uF assumption          | TEST-REQ-002b            | |
+| | SYS-REQ-008   | 1% reference resistors       | TEST-REQ-001c            | |
+| | HW-REQ-001    | UNO MCU                       | TEST-REQ-001a            | |
+| | HW-REQ-002    | Custom shield                 | TEST-REQ-001a            | |
+| | HW-REQ-003    | Pin assignments               | TEST-REQ-001a,001b       | |
+| | HW-REQ-004    | LM393 comparator              | TEST-REQ-001a            | |
+| | HW-REQ-005    | 2 uF capacitor                | TEST-REQ-001c            | |
+| | HW-REQ-006    | Calibration table             | TEST-REQ-001c            | |
+| | HW-REQ-007    | Power < 150 mA                | TEST-REQ-001b            | |
+| | HW-REQ-008    | Display interface             | TEST-REQ-003c,004        | |
+| | HW-REQ-009    | ADC test terminal             | TEST-REQ-003c            | |
+| | SW-REQ-001    | Arduino IDE / C++11           | Code review              | |
+| | SW-REQ-002    | Single .ino file              | Code review              | |
+| | SW-REQ-003    | Procedural only               | Code review              | |
+| | SW-REQ-004    | Mandatory functions           | TEST-REQ-002             | |
+| | SW-REQ-005    | Commenting standard           | Code review              | |
+| | SW-REQ-006    | Data catalog                  | Code review              | |
+| | SW-REQ-007    | Resistance algorithm          | TEST-REQ-002a,002c       | |
+| | SW-REQ-008    | Inductance algorithm          | TEST-REQ-002b            | |
+| | SW-REQ-009    | User interface / modes        | TEST-REQ-003c,004        | |
+| | SW-REQ-010    | SCPI commands                 | TEST-REQ-003b            | |
+| | SW-REQ-011    | Measurement time <= 3 s       | TEST-REQ-004             | |
+| | SW-REQ-012    | 50 ms debounce                | TEST-REQ-003a            | |
+| | SW-REQ-013    | Falling-edge action           | TEST-REQ-003a            | |
+| | SW-REQ-014    | No blocking delay > 10 ms     | Code review / TEST-003a  | |
+| | SW-REQ-015    | SCPI non-blocking <= 10 ms    | TEST-REQ-003b            | |
+| | SW-REQ-016    | Auto-scale stable <= 200 ms   | TEST-REQ-004             | |
+| | SW-REQ-017    | Error condition reporting     | TEST-REQ-003e            | |
+| | DOC-REQ-001   | English documentation         | Document review          | |
+| | DOC-REQ-002   | Commenting standard           | Code review              | |
+| | DOC-REQ-003   | Deliverables list             | Project audit            | |
+| | TEST-REQ-001  | HW verification               | TEST-REQ-001a-e          | |
+| | TEST-REQ-002  | Module unit tests             | TEST-REQ-002a-e          | |
+| | TEST-REQ-003  | Integration tests             | TEST-REQ-003a-e          | |
+| | TEST-REQ-004  | Acceptance tests              | TEST-REQ-004             | |
+| | TEST-REQ-005  | Traceability                  | This matrix              | |
+| | TEST-REQ-006  | Test documentation            | Test report template     | |
+| +---------------+------------------------------+--------------------------+ |
++------------------------------------------------------------------------------+
+
+
++------------------------------------------------------------------------------+
+| 9. APPROVAL AND CHANGE CONTROL                                               |
++------------------------------------------------------------------------------+
+|                                                                              |
+| This SRS is the sole authoritative source for all development activities.   |
+| Any deviation from any requirement herein requires a formal written Change  |
+| Request, impact assessment, and re-approval by the responsible engineering  |
+| authority before implementation.                                             |
+|                                                                              |
+| Version history:                                                             |
+|                                                                              |
+|   +-------+------------+------------------+------------------------------+  |
+|   | Ver.  | Date       | Author           | Change Summary               |  |
+|   +-------+------------+------------------+------------------------------+  |
+|   | 1.0   | 25-02-2026 | (see SRS v1 A)   | Initial release (UNO / LCD)  |  |
+|   | 1.0   | 25-02-2026 | (see SRS v1 B)   | Initial release (Nano/OLED)  |  |
+|   | 2.0   | 25-02-2026 | Consolidated     | Merged both v1.0 documents;  |  |
+|   |       |            |                  | expanded to full professional |  |
+|   |       |            |                  | SRS                          |  |
+|   | 2.1   | 25-02-2026 | Engineering      | Added error handling, refined|  |
+|   |       |            | Authority        | algorithms, unified format   |  |
+|   +-------+------------+------------------+------------------------------+  |
+|                                                                              |
+| Approved by: ___________________________   Date: __________________________  |
+|              Engineering Authority                                           |
++------------------------------------------------------------------------------+
+
+
++------------------------------------------------------------------------------+
+| APPENDIX A: PINOUT REFERENCE CARD                                            |
++------------------------------------------------------------------------------+
+|                                                                              |
+| Arduino Pin | Function                | Notes                               |
+|-------------+------------------------+-------------------------------------|
+| D4          | Test Button (active LOW)| Internal pull-up enabled            |
+| D5          | Mode Button (active LOW)| Internal pull-up enabled            |
+| D6          | Inductor Charge Output  | 5V pulse for LC excitation          |
+| D7          | Divider Supply Enable   | 5V to voltage divider               |
+| D8          | 2kOhm Range Select      | Active LOW to GND                   |
+| D9          | 20kOhm Range Select     | Active LOW to GND                   |
+| D10         | 200kOhm Range Select    | Active LOW to GND                   |
+| D11         | 1MOhm Range Select      | Active LOW to GND                   |
+| D12         | Pulse Input (LM393 out) | Comparator output from LC tank      |
+| A0          | ADC Test (optional)     | Potentiometer for verification      |
+| A2          | Voltage Sense Input     | Divider output voltage measurement  |
+| SDA (A4)    | I2C Data                | Connect to display SDA              |
+| SCL (A5)    | I2C Clock               | Connect to display SCL              |
+| 5V          | Power Output            | 5V supply for shield                |
+| GND         | Ground                  | Common ground connection            |
++------------------------------------------------------------------------------+
+
+
++------------------------------------------------------------------------------+
+| APPENDIX B: CALIBRATION PROCEDURE                                            |
++------------------------------------------------------------------------------+
+|                                                                              |
+| 1. Measure all four reference resistors using a 4-wire ohmmeter accurate     |
+|    to ±0.1%. Record values in the calibration table (KNOWN_RESISTORS).      |
+| 2. Measure the fixed 2.0 uF capacitor using an LCR meter at 1 kHz. Record   |
+|    actual value for reference (firmware uses nominal 2.0e-6 F).              |
+| 3. Perform two-point calibration using known 1 kOhm and 100 kOhm standards   |
+|    to verify system accuracy.                                                |
+| 4. Optionally store calibration date and operator name in EEPROM.            |
++------------------------------------------------------------------------------+
+
+================================================================================
+  END OF DOCUMENT
+  SRS-LRMETER-002  |  Version 2.1  |  25 February 2026
+================================================================================

@@ -1,0 +1,263 @@
+================================================================================================================================================================
+PCB DESIGN AND PRODUCTION REPORT
+================================================================================================================================================================
+
+  Document ID  :  PCB-LRMETER-002
+  Version      :  1.0
+  Date         :  26 February 2026
+  Prepared by  :  Jan Engelbrecht Pedersen  /  JEP-Electronics
+  Based on     :  SRS-LRMETER-002 Rev. 2.1,
+                  LR_meter_final_vol2b.ino (firmware source),
+                  HCR-LRMETER-002 v1.1 (hardware construction report)
+  Standards    :  IEC 62304, ISO 9001:2015, IEEE 730-2014,
+                  DO-178C Level C (adapted for embedded instrumentation)
+================================================================================================================================================================
+Precision Auto-Ranging LR Meter - Arduino UNO Shield
+================================================================================================================================================================
+1. Objective and Scope
+================================================================================================================================================================
+This document specifies the detailed requirements for the design and fabrication of a printed circuit board (PCB) for the Precision Auto-Ranging LR Meter. 
+The PCB is to be designed as a standard Arduino UNO R3 shield.
+
+The scope of this document includes:
+
+Mechanical form factor and connector placement.
+
+Layer stack-up recommendations.
+
+Detailed component placement strategy for optimal analog and digital performance.
+
+PCB routing rules, including trace width, grounding, and guarding techniques.
+
+Design for EMC/EMI compliance.
+
+Bill of Materials (BOM) clarifications for production.
+
+Design for Manufacturing (DFM) and Assembly (DFA) guidelines.
+
+This document is intended to be used in conjunction with the Hardware Construction Report (HCR-LRMETER-002) , the system schematic (schematics.png), 
+and the System Requirements Specification (SRS-LRMETER-002).
+================================================================================================================================================================
+2. Design Inputs and References
+================================================================================================================================================================
+The PCB design must strictly adhere to the following source documents:
+
+SRS-LRMETER-002 Rev. 2.1: System Requirements Specification (specifically HW-REQ-001, HW-REQ-002, HW-REQ-003, and HW-REQ-004).
+
+HCR-LRMETER-002 v1.1: Hardware Construction Report (specifically the component selection in Section 4 and the netlist in Section 5).
+
+Schematics.png: The circuit diagram detailing all component connections.
+
+Arduino Uno R3 Reference Design: For mechanical dimensions and connector pinout.
+================================================================================================================================================================
+3. Mechanical Form Factor: Arduino UNO R3 Shield
+================================================================================================================================================================
+The PCB must be designed to the exact mechanical specifications of an Arduino UNO R3 shield to ensure proper stacking and mechanical fit.
+
+Dimensions: Standard shield size: 68.6 mm x 53.3 mm (2.7 in x 2.1 in). The board outline must match the standard Arduino shield outline.
+
+Mounting Holes: Four mounting holes must be included, matching the holes on the Arduino UNO board for mechanical stability with standoffs.
+
+Connectors:
+
+ICSP Header: A 2x3 pin header footprint (2.54 mm pitch) must be included to pass through the Arduino's ICSP signals. It is recommended to keep this footprint 
+unpopulated but present for future debugging.
+
+Stacking Headers: The design must accommodate long (stacking) female headers for all I/O pins (D0-D13, A0-A5, Power, GND, IOREF, RESET) to allow the shield to 
+be plugged into the UNO and optionally have another shield stacked on top. If stacking is not a requirement, standard male headers can be used for the 
+Arduino connection, and the components on the shield are placed on the top side.
+
+Silkscreen:
+
+Clearly label all test points (J1, J2), buttons (S1: MODE, S2: TEST), and the potentiometer.
+
+Indicate the polarity of C2 (if applicable, though film caps are non-polar, marking is good practice).
+
+Mark the I2C address selection jumper if implemented (see Section 6).
+================================================================================================================================================================
+4. Layer Stack-up Recommendation
+================================================================================================================================================================
+For optimal signal integrity and EMC performance, a 2-layer PCB with a solid ground plane is the minimum recommended configuration.
+
+Layer 1 (Top Layer):
+
+Primary Function: Component placement, signal routing, and power distribution.
+
+Copper Weight: 1 oz (35 µm).
+
+Layer 2 (Bottom Layer):
+
+Primary Function: SOLID GROUND PLANE. This is non-negotiable for good EMC performance. It provides a low-impedance return path for all signals and significantly 
+reduces radiated emissions.
+
+Copper Weight: 1 oz (35 µm).
+
+Rule: No signal traces should be routed on the bottom layer unless absolutely necessary. If routing is unavoidable, it must be short and perpendicular to the 
+dominant signal flow on the top layer to avoid cutting up the ground plane.
+
+Board Thickness: Standard 1.6 mm.
+
+Solder Mask: Green (default), with clear silkscreen.
+
+Surface Finish: Lead-free HASL (Hot Air Solder Leveling) or ENIG (Electroless Nickel Immersion Gold) for improved planarity and shelf life.
+================================================================================================================================================================
+5. Component Placement Strategy
+================================================================================================================================================================
+Placement is critical for minimizing noise, especially in the high-impedance analog sections. The layout must follow a strict physical separation of 
+functional blocks as defined in HCR-LRMETER-002, Section 3.
+================================================================================================================================================================
+5.1. General Placement Rules
+================================================================================================================================================================
+No components on the bottom side: As per HW-REQ-002, all components must be placed on the top side of the shield. The bottom side is reserved for the 
+ground plane and the Arduino connector solder joints.
+
+Functional Block Separation: Physically group components according to their function:
+
+Precision Analog Divider (Block 1): R2, R3, R4, R5, and the trace to ANALOG_RES_PIN (A2).
+LC Tank & Comparator (Block 2): C2, J1, IC1 (LM393), D1, R6, R7.
+Digital I/O & UI (Block 3): Buttons S1/S2, I2C pull-ups R1/R8, connector J4 for LCD, and the buzzer circuit on A3.
+Power: Bypass capacitors for IC1 and any other ICs must be placed as close as possible to their power pins.
+================================================================================================================================================================
+5.2. Detailed Placement Instructions
+================================================================================================================================================================
+Precision Resistors (R2-R5):
+
+Place these resistors physically close to the ANALOG_RES_PIN (A2) and the GND plane.
+
+The traces from the resistors to the DUT terminal (J2) and to GND should be as short and wide as possible to minimize series inductance and resistance.
+
+LM393 Comparator (IC1) and Associated Components:
+
+Place IC1 (LM393) as close as possible to the LC tank components (C2, J1).
+
+D1 (1N4148): Must be placed immediately adjacent to the input pin of IC1 to effectively clamp any negative voltage spikes before they can travel 
+along the PCB trace.
+
+R6 (150 Ohm): Place in series with the input trace, as close to the IC1 pin as possible.
+
+R7 (330 Ohm): Place near the output pin (Pin 1 of IC1) and the via to the +5V supply.
+
+Keep the trace from the LC tank (J1 and C2) to the IC1 input as short as possible.
+
+I2C Pull-up Resistors (R1, R8):
+
+Place these resistors near the I2C connector (J4) or near the SDA/SCL vias that connect to the Arduino's A4/A5 pins. 
+This helps maintain signal integrity on the I2C bus.
+
+Buttons (S1, S2):
+
+Place them near the edge of the board for easy access when the device is in an enclosure. 
+Their traces go directly to the Arduino's D4/D5 pins and are not noise-sensitive.
+================================================================================================================================================================
+6. PCB Routing and Layout Rules
+================================================================================================================================================================
+6.1. Power Distribution (VCC and GND)
+================================================================================================================================================================
+Grounding Strategy: STAR GROUNDING with a Solid Plane. This is the most critical rule.
+
+The entire bottom layer is a solid ground plane connected to the Arduino's GND pins.
+The analog ground for the divider (resistors R2-R5, the GND side of J2) and the comparator (IC1, C2) must be connected to 
+the main ground plane at a single point. This point should be as close as possible to the Arduino's GND pin. 
+This prevents high-frequency digital return currents from flowing through the sensitive analog section.
+The digital ground for the buttons and I2C pull-ups can connect to the ground plane anywhere, as they are less sensitive.
+Power Traces (5V):
+
+The trace from the Arduino's 5V pin to the APPLY_VOLTAGE_PIN (D7) and the top of the voltage divider must be wide enough to handle the current. 
+A width of 1.0 mm (40 mils) is recommended to keep resistance low.
+
+Use a separate, wider trace (or a copper pour) to distribute 5V to the LM393 (VCC pin) and the I2C pull-ups.
+================================================================================================================================================================
+6.2. Analog Signal Routing (The "SENSE_NODE" - A2)
+================================================================================================================================================================
+This is the single most important node in the entire design. It is a high-impedance input where any leakage current 
+or noise pickup will directly corrupt the measurement.
+
+Guarding: The trace from the junction of R2-R5 and J2 to the Arduino's A2 pin must be guarded.
+
+Route this trace on the top layer.
+
+On both sides of this trace, on the top layer, run two parallel traces connected to analog ground. This "guard ring" should surround the sensitive trace. 
+The guard traces must be connected to the analog ground point (the single-point ground) and not to the main digital ground plane elsewhere.
+
+The voltage on the guard ring will be at 0V, providing a low-impedance path for any surface leakage currents, which are then shunted to ground instead of 
+flowing into the high-impedance sense line.
+
+Length: Keep this trace as short as physically possible.
+
+Via Placement: Do not use vias in this trace if it can be avoided. A via adds inductance and a potential leakage path. If a via is absolutely necessary, 
+ensure it is surrounded by guard vias to ground.
+================================================================================================================================================================
+6.3. High-Frequency/EMC Considerations
+================================================================================================================================================================
+Decoupling Capacitor for LM393: Place a 100 nF ceramic capacitor (not listed in the original BOM but strongly recommended) as close as possible between 
+the VCC pin and GND pin of the LM393. This capacitor must have a very short trace to the IC's VCC pin and then directly to the ground plane via a via.
+
+I2C Bus Integrity:
+
+Keep the SDA and SCL traces as short as possible.
+
+Route them close to each other (parallel) to minimize loop area.
+
+Consider adding small series resistors (22-33 Ohms) on the SDA and SCL lines near the Arduino's A4/A5 pins. This dampens any ringing caused by the 
+capacitance of the cable to the LCD, reducing EMI.
+
+Crystal (Not Applicable): The Arduino UNO's crystal is on the main board, so no special considerations here for the shield.
+================================================================================================================================================================
+7. Bill of Materials (BOM) for Production
+================================================================================================================================================================
+The BOM in HCR-LRMETER-002 is adequate for a prototype. For production, the BOM must be expanded to include:
+
+Manufacturer Part Numbers (MPN): Every component must have a clear MPN from a recognized manufacturer (e.g., Vishay, Yageo, Wurth, Texas Instruments, Omron). 
+This is essential for purchasing and assembly.
+
+Tolerances: Explicitly state the required tolerance for each resistor (e.g., R2-R5: 0.1%, R6/R7: 1%).
+
+Footprint: The PCB layout library must contain the exact footprint corresponding to the component's MPN (e.g., resistor size 1206 or 0805).
+
+Additions to the BOM:
+
+C3: 100 nF (0.1 µF) ceramic decoupling capacitor for LM393. (e.g., Murata GRM21BR71H104KA01L).
+
+R9, R10 (Optional): 22-33 Ohm series termination resistors for I2C lines, if deemed necessary for EMC testing.
+================================================================================================================================================================
+8. Design for Fabrication and Assembly (DFM/DFA)
+================================================================================================================================================================
+Solder Mask: Ensure all pads have proper solder mask clearance. Avoid "solder mask defined" pads for critical components unless required.
+
+Silkscreen: All reference designators (R1, C2, IC1, etc.) must be clearly visible on the silkscreen after component placement. 
+Avoid placing silkscreen text under components.
+
+Fiducial Marks: For automated assembly, include at least two fiducial marks (e.g., a 1 mm bare copper circle) on the top layer, placed diagonally on the board. 
+This allows the pick-and-place machine to accurately align the PCB.
+
+Panelization: For high-volume production, the board should be designed in a panel (e.g., 5-up) with mouse bites or V-grooves for easy depanelization.
+================================================================================================================================================================
+9. Design Checklist for Layout Engineer
+================================================================================================================================================================
+Before finalizing the PCB layout and sending it for fabrication, the following checklist must be reviewed:
+
+Category	Item									Check
+Mechanical	Board outline matches standard Arduino UNO shield.			☐
+		Mounting holes are correctly placed.					☐
+		All connectors (ICSP, stacking headers) are correctly positioned.	☐
+Power & Ground	Solid ground plane on bottom layer.					☐ (MUST)
+		Single-point connection for analog ground to main ground plane.		☐
+		1.0 mm wide trace for 5V supply to divider top.				☐
+Analog Section	Guard ring implemented around trace to A2.				☐ (MUST)
+		A2 trace is as short as possible with no unnecessary vias.		☐
+		Resistors R2-R5 are close to A2 and GND.				☐
+Comparator	D1 is placed directly adjacent to IC1 input pin.			☐
+		100 nF decoupling cap (C3) placed directly across IC1 VCC/GND.		☐
+EMC		I2C lines (SDA/SCL) are routed close together.				☐
+		(Optional) Series resistors on I2C lines are included.			☐
+Documentation	All test points (J1, J2) and buttons are clearly labeled.		☐
+		Fiducial marks added for assembly.					☐
+================================================================================================================================================================
+10. Conclusion
+================================================================================================================================================================
+By adhering to the specifications in this report, the resulting PCB will not only be a functional Arduino UNO shield but also a robust, low-noise, 
+and EMC-compliant instrument. The design choices, particularly the solid ground plane, star grounding, and guarding of the analog sense line, 
+are critical to achieving the high accuracy and reliability required by the SRS-LRMETER-002.
+
+The next step is to generate the PCB layout using a professional EDA tool (such as KiCad or Altium), ensuring that all design rules outlined above are followed. 
+Upon completion of the layout, a Design Rule Check (DRC) must be performed, and the Gerber files should be generated for manufacturing.
